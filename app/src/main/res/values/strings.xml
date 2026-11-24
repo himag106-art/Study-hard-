@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Study Hard</string>
+    <string name="a11y_desc">بيعرف إيه التطبيق المفتوح عشان يقفل التطبيقات اللي اخترتها أثناء المذاكرة. مش بيقرأ أي محتوى.</string>
+</resources>
