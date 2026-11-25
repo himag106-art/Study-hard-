@@ -43,4 +43,30 @@ class LogActivity : Activity() {
         }
     }
 
-    ove
+    override fun onCreate(b: Bundle?) {
+        super.onCreate(b)
+        window.statusBarColor = BG
+        window.navigationBarColor = BG
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setBackgroundColor(BG)
+            setPadding(dp(18), dp(40), dp(18), dp(16))
+        }
+        root.addView(txt("سجل المذاكرة", 26f, GOLD, true))
+
+        val log = Store.log(this)
+        val now = System.currentTimeMillis()
+        val df = SimpleDateFormat("EEEE d/M  hh:mm a", Locale("ar"))
+        val inner = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        var totalMin = 0L
+
+        for (i in log.length() - 1 downTo 0) {
+            val o = log.getJSONObject(i)
+            val start = o.getLong("start")
+            val planned = o.getLong("planned")
+            val endedAt = o.optLong("endedAt", 0L)
+            val hard = o.optBoolean("hard", false)
+            val reason = o.optString("reason", "")
+            val names = ArrayList
