@@ -69,4 +69,74 @@ class LogActivity : Activity() {
             val endedAt = o.optLong("endedAt", 0L)
             val hard = o.optBoolean("hard", false)
             val reason = o.optString("reason", "")
-            val names = ArrayList
+            val names = ArrayList<String>()
+            val ap = o.optJSONArray("apps")
+            if (ap != null) for (k in 0 until ap.length()) names.add(ap.getString(k))
+
+            val studied: Long
+            val state: String
+            val stateColor: Int
+            if (endedAt > 0L) {
+                studied = (endedAt - start) / 60000L
+                state = "وقفتها بدري"
+                stateColor = Color.parseColor("#FCA5A5")
+            } else if (now >= start + planned * 60000L) {
+                studied = planned
+                state = "كمّلتها"
+                stateColor = Color.parseColor("#6EE7B7")
+            } else {
+                studied = (now - start) / 60000L
+                state = "شغالة دلوقتي"
+                stateColor = GOLD
+            }
+            totalMin += studied
+
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = box(CARD, 18)
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+            }
+            card.addView(txt(df.format(Date(start)), 15f, Color.WHITE, true))
+            card.addView(txt(state, 13f, stateColor, true))
+
+            var line = "المدة: " + fmt(planned)
+            if (endedAt > 0L) line += "  •  ذاكرت: " + fmt(studied)
+            if (hard) line += "  •  تحدي Impossible"
+            card.addView(txt(line, 13f, Color.parseColor("#B7CFCF")).apply { setPadding(0, dp(6), 0, 0) })
+
+            val why = if (reason.isBlank()) "من غير سبب" else reason
+            card.addView(txt("السبب: " + why, 14f, Color.WHITE).apply { setPadding(0, dp(6), 0, 0) })
+            card.addView(
+                txt("التطبيقات المقفولة: " + names.joinToString("، "), 13f, Color.parseColor("#B7CFCF"))
+                    .apply { setPadding(0, dp(6), 0, 0) }
+            )
+            inner.addView(card, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+        }
+
+        if (log.length() == 0) {
+            root.addView(txt("لسه مفيش جلسات. ابدأ أول مذاكرة!", 15f, Color.WHITE).apply {
+                setPadding(0, dp(20), 0, 0)
+            })
+        } else {
+            root.addView(txt(
+                "إجمالي المذاكرة: " + fmt(totalMin) + "  •  عدد الجلسات: " + log.length(),
+                14f, Color.parseColor("#B7CFCF")
+            ).apply { setPadding(0, dp(6), 0, 0) })
+        }
+
+        val sv = ScrollView(this)
+        sv.addView(inner)
+        root.addView(sv, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        val back = Button(this).apply {
+            text = "رجوع"
+            setTextColor(Color.WHITE)
+            background = box(CARD, 16)
+            transformationMethod = null
+            setOnClickListener { finish() }
+        }
+        root.addView(back, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+
+        setContentView(root)
+    }
+}
