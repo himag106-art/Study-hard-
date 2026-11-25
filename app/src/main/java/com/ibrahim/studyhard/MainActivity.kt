@@ -5,8 +5,8 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,16 +26,16 @@ class MainActivity : Activity() {
     private val GOLD = Color.parseColor("#F2A900")
     private val INK = Color.parseColor("#0F3D3E")
 
-    private class AppItem(val label: String, val pkg: String, val icon: Drawable)
-
     private val chosen = HashSet<String>()
     private var appList: List<AppItem> = emptyList()
     private lateinit var status: TextView
     private lateinit var sub: TextView
+    private lateinit var warn: TextView
     private lateinit var durIn: EditText
     private lateinit var reasonIn: EditText
     private lateinit var preview: TextView
-    private lateinit var stopBtn: Button
+    private lateinit var startBtn: Button
+    private lateinit var appsBox: LinearLayout
     private val h = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() { refresh(); h.postDelayed(this, 1000) }
@@ -67,6 +67,23 @@ class MainActivity : Activity() {
         inputType = InputType.TYPE_CLASS_TEXT
         isSingleLine = true
         setPadding(dp(12), dp(12), dp(12), dp(12))
+    }
+
+    private fun badge(t: String, color: Int, url: String) = TextView(this).apply {
+        text = t
+        textSize = 14f
+        typeface = Typeface.DEFAULT_BOLD
+        gravity = Gravity.CENTER
+        setTextColor(Color.WHITE)
+        background = box(color, 24)
+        setPadding(dp(14), dp(12), dp(14), dp(12))
+        setOnClickListener {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (e: Exception) {
+                toast("مش قادر أفتح الرابط")
+            }
+        }
     }
 
     // يفهم: ساعة، ساعتين، نص ساعة، ساعة ونص، 30 دقيقة، 1:30، 45
@@ -156,7 +173,7 @@ class MainActivity : Activity() {
             preview.text = "تحدي Impossible: " + describe(m) + ". مفيش إنهاء بدري!"
             preview.setTextColor(Color.parseColor("#FCA5A5"))
         } else {
-            preview.text = "هتتقفل لمدة: " + describe(m)
+            preview.text = "هتتقفل لمدة: " + describe(m) + ". مفيش إنهاء قبل الوقت"
             preview.setTextColor(GOLD)
         }
     }
@@ -169,19 +186,41 @@ class MainActivity : Activity() {
         t.typeface = if (on) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
     }
 
+    private fun fillApps(list: List<AppItem>) {
+        appList = list
+        appsBox.removeAllViews()
+        for (a in list) {
+            val tagView = TextView(this).apply { textSize = 13f }
+            val r = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+            }
+            r.addView(
+                ImageView(this).apply { setImageDrawable(a.icon) },
+                LinearLayout.LayoutParams(dp(40), dp(40))
+            )
+            r.addView(TextView(this).apply {
+                text = a.label
+                textSize = 16f
+                setTextColor(Color.WHITE)
+                setPadding(dp(12), 0, dp(12), 0)
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            r.addView(tagView)
+            paintRow(r, tagView, a.pkg)
+            r.setOnClickListener {
+                if (!chosen.add(a.pkg)) chosen.remove(a.pkg)
+                paintRow(r, tagView, a.pkg)
+            }
+            appsBox.addView(r, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(2) })
+        }
+    }
+
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         window.statusBarColor = BG
         window.navigationBarColor = BG
         chosen.addAll(Store.locked(this))
-
-        val pm = packageManager
-        appList = pm.queryIntentActivities(
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0
-        ).map { AppItem(it.loadLabel(pm).toString(), it.activityInfo.packageName, it.loadIcon(pm)) }
-            .filter { it.pkg != packageName }
-            .distinctBy { it.pkg }
-            .sortedBy { it.label.lowercase() }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -223,8 +262,18 @@ class MainActivity : Activity() {
             setTextColor(Color.parseColor("#B7CFCF"))
             gravity = Gravity.CENTER
         }
+        warn = TextView(this).apply {
+            text = "⚠ خدمة القفل مش شغالة. دوس هنا وفعّل Study Hard من إمكانية الوصول"
+            textSize = 13f
+            setTextColor(Color.parseColor("#FCA5A5"))
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, 0)
+            visibility = View.GONE
+            setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        }
         card.addView(status)
         card.addView(sub)
+        card.addView(warn)
         col.addView(card, LinearLayout.LayoutParams(-1, -2))
 
         col.addView(label("اكتب مدة المذاكرة"))
@@ -281,37 +330,37 @@ class MainActivity : Activity() {
         col.addView(reasonIn, LinearLayout.LayoutParams(-1, -2))
 
         col.addView(label("اختار التطبيقات اللي هتتقفل"))
-        val appsBox = LinearLayout(this).apply {
+        appsBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = box(CARD, 20)
             setPadding(dp(8), dp(8), dp(8), dp(8))
         }
-        for (a in appList) {
-            val tagView = TextView(this).apply { textSize = 13f }
-            val r = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(10), dp(8), dp(10), dp(8))
-            }
-            r.addView(
-                ImageView(this).apply { setImageDrawable(a.icon) },
-                LinearLayout.LayoutParams(dp(40), dp(40))
-            )
-            r.addView(TextView(this).apply {
-                text = a.label
-                textSize = 16f
-                setTextColor(Color.WHITE)
-                setPadding(dp(12), 0, dp(12), 0)
-            }, LinearLayout.LayoutParams(0, -2, 1f))
-            r.addView(tagView)
-            paintRow(r, tagView, a.pkg)
-            r.setOnClickListener {
-                if (!chosen.add(a.pkg)) chosen.remove(a.pkg)
-                paintRow(r, tagView, a.pkg)
-            }
-            appsBox.addView(r, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(2) })
-        }
+        appsBox.addView(TextView(this).apply {
+            text = "جاري تحميل التطبيقات..."
+            textSize = 14f
+            setTextColor(Color.parseColor("#B7CFCF"))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        })
         col.addView(appsBox, LinearLayout.LayoutParams(-1, -2))
+
+        val about = TextView(this).apply {
+            text = "البرنامج بيساعدك لو عندك تعفن دماغي، أو مش بتقدر تذاكر، أو بتقول «خمس دقايق وأقوم أذاكر» وبتفضل في دوامة بقية اليوم ومتذاكرش!"
+            textSize = 14f
+            setTextColor(Color.parseColor("#B7CFCF"))
+            gravity = Gravity.CENTER
+            background = box(CARD, 18)
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+        }
+        col.addView(about, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) })
+        col.addView(
+            badge("TikTok  •  @ibrahimgamal999", Color.parseColor("#111111"), "https://www.tiktok.com/@ibrahimgamal999"),
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
+        )
+        col.addView(
+            badge("Instagram  •  @hima_gamal20117", Color.parseColor("#C13584"), "https://www.instagram.com/hima_gamal20117"),
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
+        )
+        col.addView(View(this), LinearLayout.LayoutParams(-1, dp(20)))
 
         val sv = ScrollView(this)
         sv.addView(col)
@@ -321,7 +370,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(8), dp(18), dp(16))
         }
-        val start = Button(this).apply {
+        startBtn = Button(this).apply {
             text = "ابدأ المذاكرة وقفل التطبيقات"
             textSize = 17f
             typeface = Typeface.DEFAULT_BOLD
@@ -330,16 +379,7 @@ class MainActivity : Activity() {
             transformationMethod = null
             setOnClickListener { startSession() }
         }
-        bottom.addView(start, LinearLayout.LayoutParams(-1, dp(54)))
-
-        val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        stopBtn = Button(this).apply {
-            text = "خلصت مذاكرة"
-            setTextColor(Color.WHITE)
-            background = box(CARD, 16)
-            transformationMethod = null
-            setOnClickListener { finishEarly() }
-        }
+        bottom.addView(startBtn, LinearLayout.LayoutParams(-1, dp(54)))
         val logBtn = Button(this).apply {
             text = "السجل"
             setTextColor(Color.WHITE)
@@ -347,12 +387,24 @@ class MainActivity : Activity() {
             transformationMethod = null
             setOnClickListener { startActivity(Intent(this@MainActivity, LogActivity::class.java)) }
         }
-        row2.addView(stopBtn, LinearLayout.LayoutParams(0, dp(48), 1f).apply { setMargins(0, 0, dp(4), 0) })
-        row2.addView(logBtn, LinearLayout.LayoutParams(0, dp(48), 1f).apply { setMargins(dp(4), 0, 0, 0) })
-        bottom.addView(row2, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        bottom.addView(logBtn, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(8) })
         root.addView(bottom, LinearLayout.LayoutParams(-1, -2))
 
         setContentView(root)
+
+        val cached = AppCache.items
+        if (cached != null) {
+            fillApps(cached)
+        } else {
+            Thread {
+                val l = try {
+                    AppCache.load(packageManager, packageName)
+                } catch (e: Exception) {
+                    emptyList<AppItem>()
+                }
+                runOnUiThread { if (!isFinishing) fillApps(l) }
+            }.start()
+        }
     }
 
     private fun startSession() {
@@ -365,29 +417,25 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             return
         }
-        if (total >= 360L) {
-            AlertDialog.Builder(this)
-                .setTitle("تحدي Impossible")
-                .setMessage("هتتقفل التطبيقات " + describe(total) + " ومفيش طريقة تنهي بيها قبل الوقت. والإعدادات وشاشة التثبيت هتتقفل كمان. متأكد؟")
-                .setPositiveButton("ابدأ التحدي") { _, _ -> begin(total, true) }
-                .setNegativeButton("إلغاء", null)
-                .show()
-        } else {
-            begin(total, false)
-        }
+        AlertDialog.Builder(this)
+            .setTitle(if (total >= 360L) "تحدي Impossible" else "تأكيد البدء")
+            .setMessage("هتتقفل التطبيقات المختارة " + describe(total) + " ومفيش إنهاء قبل الوقت. والإعدادات وشاشة التثبيت هتتقفل كمان. متأكد؟")
+            .setPositiveButton("ابدأ") { _, _ -> begin(total) }
+            .setNegativeButton("إلغاء", null)
+            .show()
     }
 
-    private fun begin(total: Long, hard: Boolean) {
+    private fun begin(total: Long) {
         val names = appList.filter { it.pkg in chosen }.map { it.label }
         val now = System.currentTimeMillis()
         Store.setLocked(this, chosen)
-        Store.setHard(this, hard)
+        Store.setHard(this, true)
         Store.setEndAt(this, now + total * 60000L)
 
         val o = JSONObject()
         o.put("start", now)
         o.put("planned", total)
-        o.put("hard", hard)
+        o.put("hard", total >= 360L)
         o.put("reason", reasonIn.text.toString().trim())
         val arr = JSONArray()
         for (n in names) arr.put(n)
@@ -396,35 +444,28 @@ class MainActivity : Activity() {
         refresh()
     }
 
-    private fun finishEarly() {
-        if (Store.active(this) && !Store.hard(this)) {
-            Store.endLastEarly(this)
-            Store.setEndAt(this, 0)
-        }
-        refresh()
-    }
-
     private fun serviceOn(): Boolean {
         val s = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
-        return s.contains("$packageName/${BlockerService::class.java.name}")
+        return s.contains("$packageName/${BlockerService::class.java.name}") ||
+            s.contains("$packageName/.BlockerService")
     }
 
     private fun refresh() {
         val left = (Store.endAt(this) - System.currentTimeMillis()) / 1000
-        val hard = Store.hard(this)
+        warn.visibility = if (serviceOn()) View.GONE else View.VISIBLE
         if (left > 0) {
             status.text = "%02d:%02d:%02d".format(left / 3600, (left % 3600) / 60, left % 60)
-            sub.text = if (hard) "تحدي Impossible شغال. مفيش رجوع!" else "مذاكرة شغالة. التطبيقات المختارة مقفولة"
-            stopBtn.isEnabled = !hard
-            stopBtn.alpha = if (hard) 0.4f else 1f
-            stopBtn.text = if (hard) "مفيش إنهاء" else "خلصت مذاكرة"
+            sub.text = "مذاكرة شغالة. مفيش إنهاء قبل الوقت. اجتهد!"
+            startBtn.isEnabled = false
+            startBtn.alpha = 0.4f
+            startBtn.text = "مفيش إنهاء قبل الوقت"
         } else {
-            if (hard) Store.setHard(this, false)
+            if (Store.hard(this)) Store.setHard(this, false)
             status.text = "جاهز"
             sub.text = "التطبيقات مفتوحة. اختار وابدأ"
-            stopBtn.isEnabled = true
-            stopBtn.alpha = 1f
-            stopBtn.text = "خلصت مذاكرة"
+            startBtn.isEnabled = true
+            startBtn.alpha = 1f
+            startBtn.text = "ابدأ المذاكرة وقفل التطبيقات"
         }
     }
 
