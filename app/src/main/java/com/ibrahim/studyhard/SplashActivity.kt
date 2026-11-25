@@ -21,6 +21,10 @@ class SplashActivity : Activity() {
         window.statusBarColor = Color.parseColor("#0F3D3E")
         window.navigationBarColor = Color.parseColor("#0F3D3E")
 
+        Thread {
+            try { AppCache.load(packageManager, packageName) } catch (e: Exception) { }
+        }.start()
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -42,14 +46,22 @@ class SplashActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, 24, 0, 0)
         }
+        val tagline = TextView(this).apply {
+            text = "البرنامج بيساعدك لو عندك تعفن دماغي، أو مش بتقدر تذاكر، أو بتقول «خمس دقايق وأقوم أذاكر» وبتفضل في دوامة بقية اليوم ومتذاكرش!"
+            textSize = 15f
+            setTextColor(Color.parseColor("#B7CFCF"))
+            gravity = Gravity.CENTER
+            setPadding(24, 70, 24, 0)
+        }
         root.addView(main)
         root.addView(sub)
+        root.addView(tagline)
         setContentView(root)
 
         root.alpha = 0f
-        root.animate().alpha(1f).setDuration(900).start()
+        root.animate().alpha(1f).setDuration(700).start()
         root.setOnClickListener { go() }
-        h.postDelayed({ go() }, 2800)
+        h.postDelayed({ go() }, 3200)
     }
 
     private fun go() {
